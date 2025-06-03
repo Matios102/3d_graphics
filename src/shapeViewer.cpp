@@ -51,10 +51,30 @@ void ShapeViewer::paintEvent(QPaintEvent *)
     for (const auto &v : vertices)
         projected.append(project(v.position));
 
-    for (int i = 0; i < triangles.size(); i++)
+    QVector3D cam = cameraPos.toVector3D();
+
+    for (int i = 0; i < triangles.size(); ++i)
     {
-        const auto &tri = triangles[i];
-        int i1 = int(tri.x()), i2 = int(tri.y()), i3 = int(tri.z());
+        const auto &tri = triangles[i].tri;
+        QVector3D v1 = vertices[int(tri.x())].position.toVector3D();
+        QVector3D v2 = vertices[int(tri.y())].position.toVector3D();
+        QVector3D v3 = vertices[int(tri.z())].position.toVector3D();
+
+        float d1 = (v1 - cam).length();
+        float d2 = (v2 - cam).length();
+        float d3 = (v3 - cam).length();
+
+        triangles[i].avgDistance = (d1 + d2 + d3) / 3.0f;
+    }
+
+    // Sort triangles by average Z value for painter
+    std::sort(triangles.begin(), triangles.end(),
+              [](const Triangle &a, const Triangle &b)
+              { return a.avgDistance >= b.avgDistance; });
+
+    for (const auto &tw : triangles)
+    {
+        int i1 = int(tw.tri.x()), i2 = int(tw.tri.y()), i3 = int(tw.tri.z());
 
         QVector3D p1 = vertices[i1].position.toVector3D();
         QVector3D p2 = vertices[i2].position.toVector3D();
@@ -79,7 +99,7 @@ void ShapeViewer::paintEvent(QPaintEvent *)
         }
         else
         {
-            painter.setBrush(triangleColors[i]);
+            painter.setBrush(tw.color);
         }
 
         painter.drawPolygon(poly);
@@ -210,8 +230,7 @@ void ShapeViewer::buildGeometry()
     float r = baseRadius;
     float h = cylinderHeight;
     vertices = QVector<Vertex>(4 * n + 2);
-    triangles = QVector<QVector3D>(4 * n);
-    triangleColors = QVector<QColor>(4 * n);
+    triangles = QVector<Triangle>(4 * n);
 
     // === Top ===
     vertices[0] = Vertex{QVector4D(0, h, 0, 1), QVector4D(0, 1, 0, 0), QVector2D(0.25f, 0.25f)};
@@ -230,10 +249,10 @@ void ShapeViewer::buildGeometry()
 
     for (int i = 0; i < n - 1; i++)
     {
-        triangles[i] = QVector3D(0, i + 2, i + 1);
+        triangles[i].tri = QVector3D(0, i + 2, i + 1);
     }
 
-    triangles[n - 1] = QVector3D(0, 1, n);
+    triangles[n - 1].tri = QVector3D(0, 1, n);
 
     // === Bottom ===
     vertices[4 * n + 1] = Vertex{QVector4D(0, 0, 0, 1), QVector4D(0, -1, 0, 0), QVector2D(0.75f, 0.25f)};
@@ -250,10 +269,10 @@ void ShapeViewer::buildGeometry()
 
     for (int i = 3 * n; i < 4 * n - 1; i++)
     {
-        triangles[i] = QVector3D(4 * n + 1, i + 1, i + 2);
+        triangles[i].tri = QVector3D(4 * n + 1, i + 1, i + 2);
     }
 
-    triangles[4 * n - 1] = QVector3D(4 * n + 1, 4 * n, 3 * n + 1);
+    triangles[4 * n - 1].tri = QVector3D(4 * n + 1, 4 * n, 3 * n + 1);
 
     // === Side ===
     for (int i = 0; i < n; ++i)
@@ -274,21 +293,21 @@ void ShapeViewer::buildGeometry()
 
     for (int i = n; i < 2 * n - 1; i++)
     {
-        triangles[i] = QVector3D(i + 1, i + 2, i + 1 + n);
+        triangles[i].tri = QVector3D(i + 1, i + 2, i + 1 + n);
     }
 
-    triangles[2 * n - 1] = QVector3D(2 * n, n + 1, 3 * n);
+    triangles[2 * n - 1].tri = QVector3D(2 * n, n + 1, 3 * n);
 
     for (int i = 2 * n; i < 3 * n - 1; i++)
     {
-        triangles[i] = QVector3D(i + 1, i + 2 - n, i + 2);
+        triangles[i].tri = QVector3D(i + 1, i + 2 - n, i + 2);
     }
 
-    triangles[3 * n - 1] = QVector3D(3 * n, n + 1, 2 * n + 1);
+    triangles[3 * n - 1].tri = QVector3D(3 * n, n + 1, 2 * n + 1);
 
     for (int i = 0; i < triangles.size(); ++i)
     {
-        triangleColors[i] = QColor::fromHsv(QRandomGenerator::global()->bounded(360), 200, 200);
+        triangles[i].color = QColor::fromHsv(QRandomGenerator::global()->bounded(360), 200, 200);
     }
 }
 

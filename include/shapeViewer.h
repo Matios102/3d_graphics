@@ -14,6 +14,13 @@ struct Vertex
     QVector2D textureCoord;
 };
 
+struct Triangle
+{
+    QVector3D tri;
+    float avgDistance;
+    QColor color;
+};
+
 class ShapeViewer : public QWidget
 {
     Q_OBJECT
@@ -52,8 +59,7 @@ private:
     int subDivisons = 10;
 
     QVector<Vertex> vertices;
-    QVector<QVector3D> triangles;
-    QVector<QColor> triangleColors;
+    QVector<Triangle> triangles;
 
     // Camera parameters
     QVector4D cameraPos, lookAt, upVec;
