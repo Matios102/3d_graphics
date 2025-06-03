@@ -4,13 +4,14 @@
 #include <QPointF>
 #include <QVector3D>
 #include <QVector4D>
+#include <QVector2D>
 #include <QTimer>
 
 struct Vertex
 {
     QVector4D position;
     QVector4D normal;
-    QVector4D textureCoord;
+    QVector2D textureCoord;
 };
 
 class ShapeViewer : public QWidget
@@ -24,6 +25,8 @@ public slots:
     void setBaseRadius(int r);
     void setHeight(int h);
     void setSubdivisions(int s);
+    void loadTexture(const QString &path);
+    void toggleUseTexture();
 
 protected:
     void paintEvent(QPaintEvent *) override;
@@ -36,9 +39,13 @@ protected:
     QMatrix4x4 getProjectionMatrix(float Sx, float Sy, float theta);
     bool isFacingFront(const QVector3D &normal, const QVector3D &cameraPos, const QVector3D &lookAt);
 
+    void remapTriangle(QPainter &painter, const QPointF &p1, const QPointF &p2, const QPointF &p3,
+                                const QVector2D &t1, const QVector2D &t2, const QVector2D &t3,
+                                const QImage &texture, const QColor &borderColor);
+
 private:
     void buildGeometry();
-    
+
     // Cylinder parameters
     int baseRadius = 10;
     int cylinderHeight = 20;
@@ -55,4 +62,7 @@ private:
     QPoint lastMousePos;
     float zoomSpeed = 1.1f;
     float rotationSpeed = 0.5f;
+
+    QImage textureImage;
+    bool useTexture = false;
 };

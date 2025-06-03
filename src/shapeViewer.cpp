@@ -13,6 +13,7 @@
 #include <QtMath>
 #include <QTime>
 #include <QRandomGenerator>
+#include <QPolygonF>
 
 ShapeViewer::ShapeViewer(QWidget *parent)
     : QWidget(parent)
@@ -25,7 +26,6 @@ ShapeViewer::ShapeViewer(QWidget *parent)
     lookAt = QVector4D(0.0f, cylinderHeight / 2, 0.0f, 1.0f);
     upVec = QVector4D(0.0f, 1.0f, 0.0f, 0.0f);
     buildGeometry();
-
 }
 
 void ShapeViewer::paintEvent(QPaintEvent *)
@@ -51,7 +51,6 @@ void ShapeViewer::paintEvent(QPaintEvent *)
     for (const auto &v : vertices)
         projected.append(project(v.position));
 
-    // Draw triangles with back-face culling and random colors
     for (int i = 0; i < triangles.size(); i++)
     {
         const auto &tri = triangles[i];
@@ -60,7 +59,6 @@ void ShapeViewer::paintEvent(QPaintEvent *)
         QVector3D p1 = vertices[i1].position.toVector3D();
         QVector3D p2 = vertices[i2].position.toVector3D();
         QVector3D p3 = vertices[i3].position.toVector3D();
-
         QVector3D normal = QVector3D::normal(p1, p2, p3);
 
         if (!isFacingFront(normal, cameraPos.toVector3D(), lookAt.toVector3D()))
@@ -69,15 +67,23 @@ void ShapeViewer::paintEvent(QPaintEvent *)
         QPolygonF poly;
         poly << projected[i1] << projected[i2] << projected[i3];
 
-        QColor color = triangleColors[i];
-        painter.setBrush(color);
+        if (useTexture && textureImage.isNull() == false)
+        {
+            remapTriangle(painter,
+                          projected[i1], projected[i2], projected[i3],
+                          vertices[i1].textureCoord,
+                          vertices[i2].textureCoord,
+                          vertices[i3].textureCoord,
+                          textureImage,
+                          Qt::black);
+        }
+        else
+        {
+            painter.setBrush(triangleColors[i]);
+        }
+
         painter.drawPolygon(poly);
     }
-
-    // Optional: draw vertices as small circles
-    // painter.setBrush(Qt::black);
-    // for (const auto &pt : projected)
-    //     painter.drawEllipse(pt, 2, 2);
 }
 
 QMatrix4x4 ShapeViewer::getViewMatrix(const QVector3D &cameraPos, const QVector3D &lookAt, const QVector3D &upVec)
@@ -177,19 +183,22 @@ void ShapeViewer::wheelEvent(QWheelEvent *event)
     update();
 }
 
-void ShapeViewer::setBaseRadius(int r) {
+void ShapeViewer::setBaseRadius(int r)
+{
     baseRadius = r;
     buildGeometry();
     update();
 }
 
-void ShapeViewer::setHeight(int h) {
+void ShapeViewer::setHeight(int h)
+{
     cylinderHeight = h;
     buildGeometry();
     update();
 }
 
-void ShapeViewer::setSubdivisions(int s) {
+void ShapeViewer::setSubdivisions(int s)
+{
     subDivisons = s;
     buildGeometry();
     update();
@@ -197,24 +206,26 @@ void ShapeViewer::setSubdivisions(int s) {
 
 void ShapeViewer::buildGeometry()
 {
-   int n = subDivisons;
+    int n = subDivisons;
     float r = baseRadius;
     float h = cylinderHeight;
     vertices = QVector<Vertex>(4 * n + 2);
     triangles = QVector<QVector3D>(4 * n);
-    triangleColors = QVector<QColor>(4*n);
-
-    QVector4D tex(0, 0, 0, 1);
+    triangleColors = QVector<QColor>(4 * n);
 
     // === Top ===
-    vertices[0] = Vertex{QVector4D(0, h, 0, 1), QVector4D(0, 1, 0, 0), tex};
+    vertices[0] = Vertex{QVector4D(0, h, 0, 1), QVector4D(0, 1, 0, 0), QVector2D(0.25f, 0.25f)};
 
-    for (int i = 0; i < n; ++i)
+    for (int i = 1; i < n + 1; ++i)
     {
-        float angle = 2 * M_PI * i / n;
+        float angle = 2 * M_PI * (i - 1) / n;
         float x = r * cos(angle);
         float z = r * sin(angle);
-        vertices[i + 1] = Vertex{QVector4D(x, h, z, 1), QVector4D(0, 1, 0, 0), tex};
+
+        float texX = 0.25f * (1 + cos(angle));
+        float texY = 0.25f * (1 + sin(angle));
+        QVector2D tex = QVector2D(texX, texY);
+        vertices[i] = Vertex{QVector4D(x, h, z, 1), QVector4D(0, 1, 0, 0), tex};
     }
 
     for (int i = 0; i < n - 1; i++)
@@ -225,14 +236,16 @@ void ShapeViewer::buildGeometry()
     triangles[n - 1] = QVector3D(0, 1, n);
 
     // === Bottom ===
-    vertices[4 * n + 1] = Vertex{QVector4D(0, 0, 0, 1), QVector4D(0, -1, 0, 0), tex};
+    vertices[4 * n + 1] = Vertex{QVector4D(0, 0, 0, 1), QVector4D(0, -1, 0, 0), QVector2D(0.75f, 0.25f)};
 
     for (int i = 0; i < n; ++i)
     {
         float angle = 2 * M_PI * i / n;
         float x = r * cos(angle);
         float z = r * sin(angle);
-        vertices[3 * n + i + 1] = Vertex{QVector4D(x, 0, z, 1), QVector4D(0, -1, 0, 0), tex};
+        float texX = 0.25f * (3 + cos(angle));
+        float texY = 0.25f * (1 + sin(angle));
+        vertices[3 * n + i + 1] = Vertex{QVector4D(x, 0, z, 1), QVector4D(0, -1, 0, 0), QVector2D(texX, texY)};
     }
 
     for (int i = 3 * n; i < 4 * n - 1; i++)
@@ -243,18 +256,20 @@ void ShapeViewer::buildGeometry()
     triangles[4 * n - 1] = QVector3D(4 * n + 1, 4 * n, 3 * n + 1);
 
     // === Side ===
-    for (int i = n + 1; i < 2 * n + 1; ++i)
+    for (int i = 0; i < n; ++i)
     {
-        QVector4D pi = vertices[i - n].position;
+        QVector4D pi = vertices[i + 1].position;
         QVector4D normal = QVector4D(pi.x() / r, 0, pi.z() / r, 0);
-        vertices[i] = Vertex{pi, normal, tex};
+        float texX = float(i) / (n - 1);
+        vertices[n + 1 + i] = Vertex{pi, normal, QVector2D(texX, 1.0f)};
     }
 
-    for (int i = 2 * n + 1; i < 3 * n + 1; ++i)
+    for (int i = 0; i < n; ++i)
     {
-        QVector4D pi = vertices[i + n].position;
+        QVector4D pi = vertices[3 * n + 1 + i].position;
         QVector4D normal = QVector4D(pi.x() / r, 0, pi.z() / r, 0);
-        vertices[i] = Vertex{pi, normal, tex};
+        float texX = float(i) / (n - 1);
+        vertices[2 * n + 1 + i] = Vertex{pi, normal, QVector2D(texX, 0.5f)};
     }
 
     for (int i = n; i < 2 * n - 1; i++)
@@ -274,5 +289,72 @@ void ShapeViewer::buildGeometry()
     for (int i = 0; i < triangles.size(); ++i)
     {
         triangleColors[i] = QColor::fromHsv(QRandomGenerator::global()->bounded(360), 200, 200);
+    }
+}
+
+void ShapeViewer::loadTexture(const QString &path)
+{
+    textureImage = QImage(path).convertToFormat(QImage::Format_RGB32);
+    useTexture = !textureImage.isNull();
+    update();
+}
+
+void ShapeViewer::toggleUseTexture()
+{
+    useTexture = !useTexture;
+    update();
+}
+
+void ShapeViewer::remapTriangle(QPainter &painter, const QPointF &p1, const QPointF &p2, const QPointF &p3,
+                                const QVector2D &t1, const QVector2D &t2, const QVector2D &t3,
+                                const QImage &texture, const QColor &borderColor)
+{
+    QRectF bbox = QPolygonF({p1, p2, p3}).boundingRect();
+    int minX = std::max(0, int(std::floor(bbox.left())));
+    int maxX = std::min(width() - 1, int(std::ceil(bbox.right())));
+    int minY = std::max(0, int(std::floor(bbox.top())));
+    int maxY = std::min(height() - 1, int(std::ceil(bbox.bottom())));
+
+    for (int y = minY; y <= maxY; ++y)
+    {
+        for (int x = minX; x <= maxX; ++x)
+        {
+            QPointF P(x + 0.5, y + 0.5);
+
+            float denom = (p2.y() - p3.y()) * (p1.x() - p3.x()) +
+                          (p3.x() - p2.x()) * (p1.y() - p3.y());
+
+            if (denom == 0.0f)
+                continue;
+
+            float w1 = ((p2.y() - p3.y()) * (P.x() - p3.x()) +
+                        (p3.x() - p2.x()) * (P.y() - p3.y())) /
+                       denom;
+            float w2 = ((p3.y() - p1.y()) * (P.x() - p3.x()) +
+                        (p1.x() - p3.x()) * (P.y() - p3.y())) /
+                       denom;
+            float w3 = 1.0f - w1 - w2;
+
+            if (w1 < 0 || w2 < 0 || w3 < 0)
+                continue;
+
+            QVector2D texCoord = w1 * t1 + w2 * t2 + w3 * t3;
+
+            int tx = int(texCoord.x() * texture.width());
+            int ty = int(texCoord.y() * texture.height());
+
+            QColor color;
+            if (tx >= 0 && tx < texture.width() && ty >= 0 && ty < texture.height())
+            {
+                color = texture.pixelColor(tx, ty);
+            }
+            else
+            {
+                color = borderColor;
+            }
+
+            painter.setPen(color);
+            painter.drawPoint(x, y);
+        }
     }
 }

@@ -4,7 +4,8 @@
 #include <QHBoxLayout>
 #include <QSpinBox>
 #include <QLabel>
-#include <QWidget>
+#include <QPushButton>
+#include <QFileDialog>
 #include "shapeViewer.h"
 
 int main(int argc, char *argv[]) {
@@ -36,6 +37,23 @@ int main(int argc, char *argv[]) {
     makeControl("Radius:", 5, 200, 50, SLOT(setBaseRadius(int)));
     makeControl("Height:", 5, 400, 100, SLOT(setHeight(int)));
     makeControl("Subdivs:", 3, 100, 20, SLOT(setSubdivisions(int)));
+
+    // Button: Load Texture
+    QPushButton *loadTextureButton = new QPushButton("Load Texture");
+    QObject::connect(loadTextureButton, &QPushButton::clicked, [&]() {
+        QString path = QFileDialog::getOpenFileName(nullptr, "Select Texture Image", "", "Images (*.png *.jpg *.bmp)");
+        if (!path.isEmpty()) {
+            viewer->loadTexture(path);
+        }
+    });
+    controls->addWidget(loadTextureButton);
+
+    // Button: Toggle Texture Usage
+    QPushButton *toggleTextureButton = new QPushButton("Toggle Texture");
+    QObject::connect(toggleTextureButton, &QPushButton::clicked, [&]() {
+        viewer->toggleUseTexture();
+    });
+    controls->addWidget(toggleTextureButton);
 
     layout->addWidget(viewer, 1);
     layout->addWidget(controlPanel);
