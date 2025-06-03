@@ -1,0 +1,27 @@
+# Ignore build directories
+build/
+obj/
+
+# Ignore Qt Creator specific files
+*.pro.user
+*.qmake.stash
+
+# Ignore generated files
+moc_*.cpp
+moc_*.h
+ui_*.h
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+
+# Ignore macOS specific files
+.DS_Store
+
+# Ignore Visual Studio Code specific files
+.vscode/
+
+# Ignore application bundle
+3d_graphics.app/
