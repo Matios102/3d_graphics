@@ -1,19 +1,9 @@
 #include "include/shapeViewer.h"
+#include "remap.h"
+#include "transformation.h"
 #include <QPainter>
-#include <QTimer>
-#include <QMatrix4x4>
-#include <QVector3D>
-#include <QVector4D>
-#include <QVector>
-#include <QPainterPath>
-#include <QPair>
 #include <QMouseEvent>
-#include <cmath>
-#include <iostream>
-#include <QtMath>
-#include <QTime>
 #include <QRandomGenerator>
-#include <QPolygonF>
 
 ShapeViewer::ShapeViewer(QWidget *parent)
     : QWidget(parent)
@@ -22,19 +12,22 @@ ShapeViewer::ShapeViewer(QWidget *parent)
     cylinderHeight = 100;
     subDivisons = 20;
 
-    cameraPos = QVector4D(300.0f, 200.0f, 50.0f, 1.0f);
-    lookAt = QVector4D(0.0f, cylinderHeight / 2, 0.0f, 1.0f);
-    upVec = QVector4D(0.0f, 1.0f, 0.0f, 0.0f);
+    QVector3D cameraPos = QVector3D(300.0f, 200.0f, 50.0f);
+    QVector3D lookAt = QVector3D(0.0f, cylinderHeight / 2, 0.0f);
+    QVector3D upVec = QVector3D(0.0f, 1.0f, 0.0f);
+
+    camera = Camera(cameraPos, lookAt, upVec);
+
     buildGeometry();
 }
 
 void ShapeViewer::paintEvent(QPaintEvent *)
 {
-    QPainter painter(this);
-    painter.setRenderHint(QPainter::Antialiasing);
-    painter.setPen(Qt::NoPen); // No outline for filled triangles
+    // Create framebuffer
+    QImage framebuffer(width(), height(), QImage::Format_RGB32);
+    framebuffer.fill(Qt::black);
 
-    QMatrix4x4 view = getViewMatrix(cameraPos.toVector3D(), lookAt.toVector3D(), upVec.toVector3D());
+    QMatrix4x4 view = getViewMatrix(camera.getPosition(), camera.getLookAt(), camera.getUpVector());
     QMatrix4x4 proj = getProjectionMatrix(width(), height(), 45.0f);
     QMatrix4x4 vp = proj * view;
 
@@ -51,7 +44,7 @@ void ShapeViewer::paintEvent(QPaintEvent *)
     for (const auto &v : vertices)
         projected.append(project(v.position));
 
-    QVector3D cam = cameraPos.toVector3D();
+    QVector3D cam = camera.getPosition();
 
     for (int i = 0; i < triangles.size(); ++i)
     {
@@ -67,10 +60,10 @@ void ShapeViewer::paintEvent(QPaintEvent *)
         triangles[i].avgDistance = (d1 + d2 + d3) / 3.0f;
     }
 
-    // Sort triangles by average Z value for painter
+    // Sort by depth (back to front)
     std::sort(triangles.begin(), triangles.end(),
               [](const Triangle &a, const Triangle &b)
-              { return a.avgDistance >= b.avgDistance; });
+              { return a.avgDistance > b.avgDistance; });
 
     for (const auto &tw : triangles)
     {
@@ -81,77 +74,41 @@ void ShapeViewer::paintEvent(QPaintEvent *)
         QVector3D p3 = vertices[i3].position.toVector3D();
         QVector3D normal = QVector3D::normal(p1, p2, p3);
 
-        if (!isFacingFront(normal, cameraPos.toVector3D(), lookAt.toVector3D()))
-            continue;
-
-        QPolygonF poly;
-        poly << projected[i1] << projected[i2] << projected[i3];
-
-        if (useTexture && textureImage.isNull() == false)
+        if (displayMode == DisplayMode::Wireframe)
         {
-            remapTriangle(painter,
-                          projected[i1], projected[i2], projected[i3],
-                          vertices[i1].textureCoord,
-                          vertices[i2].textureCoord,
-                          vertices[i3].textureCoord,
-                          textureImage,
-                          Qt::black);
+            float d = std::clamp(tw.avgDistance / 1000.0f, 0.0f, 1.0f);
+            int intensity = int(std::pow(1.0f - d, 0.6f) * 255);
+            QColor wireColor(intensity, intensity, intensity);
+
+            QPainter meshPainter(&framebuffer);
+            meshPainter.setPen(wireColor);
+            meshPainter.drawLine(projected[i1], projected[i2]);
+            meshPainter.drawLine(projected[i2], projected[i3]);
+            meshPainter.drawLine(projected[i3], projected[i1]);
+        }
+        else if (displayMode == DisplayMode::Textured && !textureImage.isNull())
+        {
+            if (!isFacingFront(normal, cam, camera.getLookAt()))
+                continue;
+            remapTriangleToImage(framebuffer,
+                                 projected[i1], projected[i2], projected[i3],
+                                 vertices[i1].textureCoord, vertices[i2].textureCoord, vertices[i3].textureCoord,
+                                 textureImage, Qt::black);
         }
         else
         {
-            painter.setBrush(tw.color);
+            if (!isFacingFront(normal, cam, camera.getLookAt()))
+                continue;
+            remapTriangleToImage(framebuffer,
+                                 projected[i1], projected[i2], projected[i3],
+                                 QVector2D(), QVector2D(), QVector2D(),
+                                 QImage(), tw.color);
         }
-
-        painter.drawPolygon(poly);
     }
-}
 
-QMatrix4x4 ShapeViewer::getViewMatrix(const QVector3D &cameraPos, const QVector3D &lookAt, const QVector3D &upVec)
-{
-    QVector3D cZ = (cameraPos - lookAt).normalized();
-    QVector3D cX = QVector3D::crossProduct(upVec, cZ).normalized();
-    QVector3D cY = QVector3D::crossProduct(cZ, cX).normalized();
-
-    QMatrix4x4 viewMatrix;
-    viewMatrix.setRow(0, QVector4D(cX.x(), cX.y(), cX.z(), -QVector3D::dotProduct(cX, cameraPos)));
-    viewMatrix.setRow(1, QVector4D(cY.x(), cY.y(), cY.z(), -QVector3D::dotProduct(cY, cameraPos)));
-    viewMatrix.setRow(2, QVector4D(cZ.x(), cZ.y(), cZ.z(), -QVector3D::dotProduct(cZ, cameraPos)));
-    viewMatrix.setRow(3, QVector4D(0.0f, 0.0f, 0.0f, 1.0f));
-
-    return viewMatrix;
-}
-
-QMatrix4x4 ShapeViewer::getProjectionMatrix(float Sx, float Sy, float theta)
-{
-    float cot = 1.0f / tan(theta * M_PI / 360.0f); // cot(theta/2) = 1/tan(theta/2)
-    float Sx_half = Sx / 2.0f;
-    float Sy_half = Sy / 2.0f;
-    QMatrix4x4 projectionMatrix;
-    projectionMatrix.setRow(0, QVector4D(-Sx_half * cot, 0.0f, Sx_half, 0.0f));
-    projectionMatrix.setRow(1, QVector4D(0.0f, Sy_half * cot, Sy_half, 0.0f));
-    projectionMatrix.setRow(2, QVector4D(0.0f, 0.0f, 0.0f, 1.0f));
-    projectionMatrix.setRow(3, QVector4D(0.0f, 0.0f, 1.0f, 0.0f));
-
-    return projectionMatrix;
-}
-
-QMatrix4x4 ShapeViewer::getRotationMatrix(const QVector3D &axis, float angleDegrees)
-{
-    QMatrix4x4 mat;
-    QVector3D a = axis.normalized();
-    float angle = qDegreesToRadians(angleDegrees);
-    float c = cos(angle);
-    float s = sin(angle);
-    float one_c = 1.0f - c;
-
-    float x = a.x(), y = a.y(), z = a.z();
-
-    mat.setRow(0, QVector4D(c + x * x * one_c, x * y * one_c - z * s, x * z * one_c + y * s, 0));
-    mat.setRow(1, QVector4D(y * x * one_c + z * s, c + y * y * one_c, y * z * one_c - x * s, 0));
-    mat.setRow(2, QVector4D(z * x * one_c - y * s, z * y * one_c + x * s, c + z * z * one_c, 0));
-    mat.setRow(3, QVector4D(0, 0, 0, 1));
-
-    return mat;
+    // Draw final framebuffer
+    QPainter painter(this);
+    painter.drawImage(0, 0, framebuffer);
 }
 
 bool ShapeViewer::isFacingFront(const QVector3D &normal, const QVector3D &cameraPos, const QVector3D &lookAt)
@@ -170,17 +127,7 @@ void ShapeViewer::mouseMoveEvent(QMouseEvent *event)
     QPoint delta = event->pos() - lastMousePos;
     lastMousePos = event->pos();
 
-    QVector3D camVec = cameraPos.toVector3D() - lookAt.toVector3D();
-
-    // Rotation around world Y (horizontal drag)
-    QMatrix4x4 rotY = getRotationMatrix(QVector3D(0, 1, 0), -delta.x() * rotationSpeed);
-
-    // Rotation around camera's right vector (vertical drag)
-    QVector3D right = QVector3D::crossProduct(upVec.toVector3D(), camVec).normalized();
-    QMatrix4x4 rotRight = getRotationMatrix(right.normalized(), -delta.y() * rotationSpeed);
-
-    QVector3D newCamVec = rotRight * rotY * camVec;
-    cameraPos = QVector4D(lookAt.toVector3D() + newCamVec, 1.0f);
+    camera.updatePosition(delta);
 
     update();
 }
@@ -189,16 +136,7 @@ void ShapeViewer::wheelEvent(QWheelEvent *event)
 {
     float delta = event->angleDelta().y() / 120.0f;
 
-    float zoomFactor = std::pow(zoomSpeed, -delta);
-
-    QVector3D newPos = lookAt.toVector3D() + (cameraPos.toVector3D() - lookAt.toVector3D()) * zoomFactor;
-
-    // Clamp to avoid crossing the origin or going too far
-    float minDist = 20.0f;
-    float maxDist = 2000.0f;
-    float dist = (newPos - lookAt.toVector3D()).length();
-    if (dist > minDist && dist < maxDist)
-        cameraPos = QVector4D(newPos, 1.0f);
+    camera.zoom(delta);
 
     update();
 }
@@ -214,6 +152,7 @@ void ShapeViewer::setHeight(int h)
 {
     cylinderHeight = h;
     buildGeometry();
+    camera.setLookAt(QVector3D(0.0f, h / 2.0f, 0.0f));
     update();
 }
 
@@ -314,66 +253,12 @@ void ShapeViewer::buildGeometry()
 void ShapeViewer::loadTexture(const QString &path)
 {
     textureImage = QImage(path).convertToFormat(QImage::Format_RGB32);
-    useTexture = !textureImage.isNull();
+    displayMode = DisplayMode::Textured;
     update();
 }
 
-void ShapeViewer::toggleUseTexture()
+void ShapeViewer::setDisplayMode(DisplayMode mode)
 {
-    useTexture = !useTexture;
+    displayMode = mode;
     update();
-}
-
-void ShapeViewer::remapTriangle(QPainter &painter, const QPointF &p1, const QPointF &p2, const QPointF &p3,
-                                const QVector2D &t1, const QVector2D &t2, const QVector2D &t3,
-                                const QImage &texture, const QColor &borderColor)
-{
-    QRectF bbox = QPolygonF({p1, p2, p3}).boundingRect();
-    int minX = std::max(0, int(std::floor(bbox.left())));
-    int maxX = std::min(width() - 1, int(std::ceil(bbox.right())));
-    int minY = std::max(0, int(std::floor(bbox.top())));
-    int maxY = std::min(height() - 1, int(std::ceil(bbox.bottom())));
-
-    for (int y = minY; y <= maxY; ++y)
-    {
-        for (int x = minX; x <= maxX; ++x)
-        {
-            QPointF P(x + 0.5, y + 0.5);
-
-            float denom = (p2.y() - p3.y()) * (p1.x() - p3.x()) +
-                          (p3.x() - p2.x()) * (p1.y() - p3.y());
-
-            if (denom == 0.0f)
-                continue;
-
-            float w1 = ((p2.y() - p3.y()) * (P.x() - p3.x()) +
-                        (p3.x() - p2.x()) * (P.y() - p3.y())) /
-                       denom;
-            float w2 = ((p3.y() - p1.y()) * (P.x() - p3.x()) +
-                        (p1.x() - p3.x()) * (P.y() - p3.y())) /
-                       denom;
-            float w3 = 1.0f - w1 - w2;
-
-            if (w1 < 0 || w2 < 0 || w3 < 0)
-                continue;
-
-            QVector2D texCoord = w1 * t1 + w2 * t2 + w3 * t3;
-
-            int tx = int(texCoord.x() * texture.width());
-            int ty = int(texCoord.y() * texture.height());
-
-            QColor color;
-            if (tx >= 0 && tx < texture.width() && ty >= 0 && ty < texture.height())
-            {
-                color = texture.pixelColor(tx, ty);
-            }
-            else
-            {
-                color = borderColor;
-            }
-
-            painter.setPen(color);
-            painter.drawPoint(x, y);
-        }
-    }
 }

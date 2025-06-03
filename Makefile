@@ -53,9 +53,13 @@ OBJECTS_DIR   = obj/
 ####### Files
 
 SOURCES       = main.cpp \
-		src/shapeViewer.cpp obj/moc_shapeViewer.cpp
+		src/shapeViewer.cpp \
+		src/camera.cpp \
+		src/transformation.cpp obj/moc_shapeViewer.cpp
 OBJECTS       = obj/main.o \
 		obj/shapeViewer.o \
+		obj/camera.o \
+		obj/transformation.o \
 		obj/moc_shapeViewer.o
 DIST          = /opt/homebrew/Cellar/qt@5/5.15.16_2/mkspecs/features/spec_pre.prf \
 		/opt/homebrew/Cellar/qt@5/5.15.16_2/mkspecs/qdevice.pri \
@@ -269,8 +273,13 @@ DIST          = /opt/homebrew/Cellar/qt@5/5.15.16_2/mkspecs/features/spec_pre.pr
 		/opt/homebrew/Cellar/qt@5/5.15.16_2/mkspecs/features/exceptions.prf \
 		/opt/homebrew/Cellar/qt@5/5.15.16_2/mkspecs/features/yacc.prf \
 		/opt/homebrew/Cellar/qt@5/5.15.16_2/mkspecs/features/lex.prf \
-		3d_graphics.pro include/shapeViewer.h main.cpp \
-		src/shapeViewer.cpp
+		3d_graphics.pro include/shapeViewer.h \
+		include/remap.h \
+		include/transformation.h \
+		include/camera.h main.cpp \
+		src/shapeViewer.cpp \
+		src/camera.cpp \
+		src/transformation.cpp
 QMAKE_TARGET  = 3d_graphics
 DESTDIR       = 
 TARGET        = 3d_graphics.app/Contents/MacOS/3d_graphics
@@ -758,8 +767,8 @@ distdir: FORCE
 	@test -d $(DISTDIR) || mkdir -p $(DISTDIR)
 	$(COPY_FILE) --parents $(DIST) $(DISTDIR)/
 	$(COPY_FILE) --parents /opt/homebrew/Cellar/qt@5/5.15.16_2/mkspecs/features/data/dummy.cpp $(DISTDIR)/
-	$(COPY_FILE) --parents include/shapeViewer.h $(DISTDIR)/
-	$(COPY_FILE) --parents main.cpp src/shapeViewer.cpp $(DISTDIR)/
+	$(COPY_FILE) --parents include/shapeViewer.h include/remap.h include/transformation.h include/camera.h $(DISTDIR)/
+	$(COPY_FILE) --parents main.cpp src/shapeViewer.cpp src/camera.cpp src/transformation.cpp $(DISTDIR)/
 
 
 clean: compiler_clean 
@@ -806,8 +815,11 @@ obj/moc_shapeViewer.cpp: include/shapeViewer.h \
 		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtGui.framework/Headers/qvector3d.h \
 		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtGui.framework/Headers/QVector4D \
 		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtGui.framework/Headers/qvector4d.h \
+		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtGui.framework/Headers/QVector2D \
+		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtGui.framework/Headers/qvector2d.h \
 		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtCore.framework/Headers/QTimer \
 		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtCore.framework/Headers/qtimer.h \
+		include/camera.h \
 		obj/moc_predefs.h \
 		/opt/homebrew/Cellar/qt@5/5.15.16_2/bin/moc
 	/opt/homebrew/Cellar/qt@5/5.15.16_2/bin/moc $(DEFINES) --include /Users/mateuszosik/repos/Uni/Semester6/CG/3d_graphics/obj/moc_predefs.h -I/opt/homebrew/Cellar/qt@5/5.15.16_2/mkspecs/macx-clang -I/Users/mateuszosik/repos/Uni/Semester6/CG/3d_graphics -I/Users/mateuszosik/repos/Uni/Semester6/CG/3d_graphics/include -I/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtWidgets.framework/Headers -I/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtGui.framework/Headers -I/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtCore.framework/Headers -I/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1 -I/Library/Developer/CommandLineTools/usr/lib/clang/17/include -I/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include -I/Library/Developer/CommandLineTools/usr/include -F/opt/homebrew/Cellar/qt@5/5.15.16_2/lib include/shapeViewer.h -o obj/moc_shapeViewer.cpp
@@ -832,6 +844,19 @@ compiler_clean: compiler_moc_predefs_clean compiler_moc_header_clean
 
 obj/main.o: main.cpp /opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtWidgets.framework/Headers/QApplication \
 		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtWidgets.framework/Headers/qapplication.h \
+		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtWidgets.framework/Headers/QMainWindow \
+		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtWidgets.framework/Headers/qmainwindow.h \
+		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtWidgets.framework/Headers/QVBoxLayout \
+		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtWidgets.framework/Headers/qboxlayout.h \
+		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtWidgets.framework/Headers/QHBoxLayout \
+		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtWidgets.framework/Headers/QSpinBox \
+		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtWidgets.framework/Headers/qspinbox.h \
+		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtWidgets.framework/Headers/QLabel \
+		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtWidgets.framework/Headers/qlabel.h \
+		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtWidgets.framework/Headers/QPushButton \
+		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtWidgets.framework/Headers/qpushbutton.h \
+		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtWidgets.framework/Headers/QFileDialog \
+		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtWidgets.framework/Headers/qfiledialog.h \
 		include/shapeViewer.h \
 		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtWidgets.framework/Headers/QWidget \
 		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtWidgets.framework/Headers/qwidget.h \
@@ -841,8 +866,11 @@ obj/main.o: main.cpp /opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtWidgets.framework
 		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtGui.framework/Headers/qvector3d.h \
 		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtGui.framework/Headers/QVector4D \
 		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtGui.framework/Headers/qvector4d.h \
+		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtGui.framework/Headers/QVector2D \
+		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtGui.framework/Headers/qvector2d.h \
 		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtCore.framework/Headers/QTimer \
-		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtCore.framework/Headers/qtimer.h
+		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtCore.framework/Headers/qtimer.h \
+		include/camera.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o obj/main.o main.cpp
 
 obj/shapeViewer.o: src/shapeViewer.cpp include/shapeViewer.h \
@@ -854,23 +882,41 @@ obj/shapeViewer.o: src/shapeViewer.cpp include/shapeViewer.h \
 		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtGui.framework/Headers/qvector3d.h \
 		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtGui.framework/Headers/QVector4D \
 		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtGui.framework/Headers/qvector4d.h \
+		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtGui.framework/Headers/QVector2D \
+		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtGui.framework/Headers/qvector2d.h \
 		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtCore.framework/Headers/QTimer \
 		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtCore.framework/Headers/qtimer.h \
-		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtGui.framework/Headers/QPainter \
-		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtGui.framework/Headers/qpainter.h \
+		include/camera.h \
+		include/remap.h \
+		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtGui.framework/Headers/QImage \
+		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtGui.framework/Headers/qimage.h \
+		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtGui.framework/Headers/QColor \
+		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtGui.framework/Headers/qcolor.h \
+		include/transformation.h \
 		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtGui.framework/Headers/QMatrix4x4 \
 		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtGui.framework/Headers/qmatrix4x4.h \
-		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtCore.framework/Headers/QVector \
-		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtCore.framework/Headers/qvector.h \
-		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtGui.framework/Headers/QPainterPath \
-		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtGui.framework/Headers/qpainterpath.h \
-		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtCore.framework/Headers/QPair \
-		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtCore.framework/Headers/qpair.h \
+		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtGui.framework/Headers/QPainter \
+		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtGui.framework/Headers/qpainter.h \
 		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtGui.framework/Headers/QMouseEvent \
 		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtGui.framework/Headers/qevent.h \
-		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtCore.framework/Headers/QtMath \
-		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtCore.framework/Headers/qmath.h
+		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtCore.framework/Headers/QRandomGenerator \
+		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtCore.framework/Headers/qrandom.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o obj/shapeViewer.o src/shapeViewer.cpp
+
+obj/camera.o: src/camera.cpp include/camera.h \
+		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtGui.framework/Headers/QVector3D \
+		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtGui.framework/Headers/qvector3d.h \
+		include/transformation.h \
+		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtGui.framework/Headers/QMatrix4x4 \
+		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtGui.framework/Headers/qmatrix4x4.h
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o obj/camera.o src/camera.cpp
+
+obj/transformation.o: src/transformation.cpp include/transformation.h \
+		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtGui.framework/Headers/QMatrix4x4 \
+		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtGui.framework/Headers/qmatrix4x4.h \
+		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtGui.framework/Headers/QVector3D \
+		/opt/homebrew/Cellar/qt@5/5.15.16_2/lib/QtGui.framework/Headers/qvector3d.h
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o obj/transformation.o src/transformation.cpp
 
 obj/moc_shapeViewer.o: obj/moc_shapeViewer.cpp 
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o obj/moc_shapeViewer.o obj/moc_shapeViewer.cpp

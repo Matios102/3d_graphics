@@ -11,10 +11,15 @@ CONFIG += c++17
 SOURCES += \
     main.cpp \
     src/shapeViewer.cpp \
+    src/camera.cpp \
+    src/transformation.cpp \
 
 
 HEADERS += \
     include/shapeViewer.h \
+    include/remap.h \
+    include/transformation.h \
+    include/camera.h \
    
 OBJECTS_DIR = obj
 MOC_DIR = obj

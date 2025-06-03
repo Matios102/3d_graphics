@@ -8,7 +8,8 @@
 #include <QFileDialog>
 #include "shapeViewer.h"
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
     QApplication app(argc, argv);
 
     QMainWindow window;
@@ -23,7 +24,8 @@ int main(int argc, char *argv[]) {
     QWidget *controlPanel = new QWidget();
     QVBoxLayout *controls = new QVBoxLayout(controlPanel);
 
-    auto makeControl = [&](const QString &label, int min, int max, int value, auto slot) {
+    auto makeControl = [&](const QString &label, int min, int max, int value, auto slot)
+    {
         QHBoxLayout *row = new QHBoxLayout();
         row->addWidget(new QLabel(label));
         QSpinBox *spin = new QSpinBox();
@@ -40,20 +42,28 @@ int main(int argc, char *argv[]) {
 
     // Button: Load Texture
     QPushButton *loadTextureButton = new QPushButton("Load Texture");
-    QObject::connect(loadTextureButton, &QPushButton::clicked, [&]() {
+    QObject::connect(loadTextureButton, &QPushButton::clicked, [&]()
+                     {
         QString path = QFileDialog::getOpenFileName(nullptr, "Select Texture Image", "", "Images (*.png *.jpg *.bmp)");
         if (!path.isEmpty()) {
             viewer->loadTexture(path);
-        }
-    });
+        } });
     controls->addWidget(loadTextureButton);
 
-    // Button: Toggle Texture Usage
-    QPushButton *toggleTextureButton = new QPushButton("Toggle Texture");
-    QObject::connect(toggleTextureButton, &QPushButton::clicked, [&]() {
-        viewer->toggleUseTexture();
-    });
-    controls->addWidget(toggleTextureButton);
+    QPushButton *meshButton = new QPushButton("Wireframe");
+    QPushButton *colorButton = new QPushButton("Colored");
+    QPushButton *textureButton = new QPushButton("Textured");
+
+    controls->addWidget(meshButton);
+    controls->addWidget(colorButton);
+    controls->addWidget(textureButton);
+
+    QObject::connect(meshButton, &QPushButton::clicked, [&]()
+                     { viewer->setDisplayMode(DisplayMode::Wireframe); });
+    QObject::connect(colorButton, &QPushButton::clicked, [&]()
+                     { viewer->setDisplayMode(DisplayMode::Colored); });
+    QObject::connect(textureButton, &QPushButton::clicked, [&]()
+                     { viewer->setDisplayMode(DisplayMode::Textured); });
 
     layout->addWidget(viewer, 1);
     layout->addWidget(controlPanel);

@@ -6,6 +6,14 @@
 #include <QVector4D>
 #include <QVector2D>
 #include <QTimer>
+#include "camera.h"
+
+enum class DisplayMode
+{
+    Wireframe,
+    Colored,
+    Textured
+};
 
 struct Vertex
 {
@@ -33,22 +41,14 @@ public slots:
     void setHeight(int h);
     void setSubdivisions(int s);
     void loadTexture(const QString &path);
-    void toggleUseTexture();
+    void setDisplayMode(DisplayMode mode);
 
 protected:
     void paintEvent(QPaintEvent *) override;
     void mousePressEvent(QMouseEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;
     void wheelEvent(QWheelEvent *event) override;
-
-    QMatrix4x4 getRotationMatrix(const QVector3D &axis, float angleDegrees);
-    QMatrix4x4 getViewMatrix(const QVector3D &cameraPos, const QVector3D &lookAt, const QVector3D &upVec);
-    QMatrix4x4 getProjectionMatrix(float Sx, float Sy, float theta);
     bool isFacingFront(const QVector3D &normal, const QVector3D &cameraPos, const QVector3D &lookAt);
-
-    void remapTriangle(QPainter &painter, const QPointF &p1, const QPointF &p2, const QPointF &p3,
-                                const QVector2D &t1, const QVector2D &t2, const QVector2D &t3,
-                                const QImage &texture, const QColor &borderColor);
 
 private:
     void buildGeometry();
@@ -61,14 +61,12 @@ private:
     QVector<Vertex> vertices;
     QVector<Triangle> triangles;
 
-    // Camera parameters
-    QVector4D cameraPos, lookAt, upVec;
+    Camera camera;
 
     // Mouse interaction
     QPoint lastMousePos;
-    float zoomSpeed = 1.1f;
-    float rotationSpeed = 0.5f;
+
 
     QImage textureImage;
-    bool useTexture = false;
+    DisplayMode displayMode = DisplayMode::Wireframe;
 };
